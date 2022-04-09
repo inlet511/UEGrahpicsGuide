@@ -3,10 +3,38 @@
 #include <Engine/TextureRenderTarget2D.h>
 
 
+struct FVertex_Pos_UV
+{
+	FVector4 Position;
+	FVector2D UV;
+};
+
+class FVertex_Pos_UV_Declaration : public FRenderResource
+{
+public:
+	FVertexDeclarationRHIRef VertexDeclarationRHI;
+
+	virtual void InitRHI()
+	{
+		FVertexDeclarationElementList Elements;
+		uint32 Stride = sizeof(FVertex_Pos_UV);
+		Elements.Add(FVertexElement(0, STRUCT_OFFSET(FVertex_Pos_UV, Position), VET_Float4, 0, Stride));
+		Elements.Add(FVertexElement(0, STRUCT_OFFSET(FVertex_Pos_UV, UV), VET_Float2, 1, Stride));
+		VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+	}
+
+	virtual void ReleaseRHI() override
+	{
+		VertexDeclarationRHI->Release();
+	}
+};
+
 static void DrawToQuad_RenderThread(
 	FRHICommandListImmediate& RHICmdList,
 	FTextureRenderTargetResource* OutputRenderTargetResource,
-	FLinearColor MyColor)
+	FLinearColor MyColor,
+	FRHITexture2D* MyRHITexture
+	)
 {
 	check(IsInRenderingThread());
 
@@ -25,35 +53,42 @@ static void DrawToQuad_RenderThread(
 		TShaderMapRef<FShader_PS> PixelShader(GlobalShaderMap);
 
 		// Set the graphic pipeline state.  
+		FVertex_Pos_UV_Declaration VertexDesc;
+		VertexDesc.InitRHI();
+
 		FGraphicsPipelineStateInitializer GraphicsPSOInit;
 		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 		GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
 		GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
 		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GetVertexDeclarationFVector4();
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = VertexDesc.VertexDeclarationRHI;
 		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = VertexShader.GetVertexShader();
 		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = PixelShader.GetPixelShader();
 		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-		PixelShader->SetParameters(RHICmdList, MyColor);
+		PixelShader->SetParameters(RHICmdList, MyColor, MyRHITexture);
 
 		// Vertex Buffer Begins --------------------------
 		FRHIResourceCreateInfo createInfo;
-		FVertexBufferRHIRef MyVertexBufferRHI = RHICreateVertexBuffer(sizeof(FVector4) * 4, BUF_Static, createInfo);
-		void* VoidPtr = RHILockVertexBuffer(MyVertexBufferRHI, 0, sizeof(FVector4) * 4, RLM_WriteOnly);
+		FVertexBufferRHIRef MyVertexBufferRHI = RHICreateVertexBuffer(sizeof(FVertex_Pos_UV) * 4, BUF_Static, createInfo);
+		void* VoidPtr = RHILockVertexBuffer(MyVertexBufferRHI, 0, sizeof(FVertex_Pos_UV) * 4, RLM_WriteOnly);
 
-		FVector4 v[4];
+		FVertex_Pos_UV v[4];
 		// LT
-		v[0] = FVector4(-1.0f, 1.0f, 0.0f, 1.0f);
+		v[0].Position = FVector4(-1.0f, 1.0f, 0.0f, 1.0f);
+		v[0].UV = FVector2D(0, 1.0f);
 		// RT
-		v[1] = FVector4(1.0f, 1.0f, 0.0f, 1.0f);
+		v[1].Position = FVector4(1.0f, 1.0f, 0.0f, 1.0f);
+		v[1].UV = FVector2D(1.0f, 1.0f);
 		// LB
-		v[2] = FVector4(-1.0f, -1.0f, 0.0f, 1.0f);
+		v[2].Position = FVector4(-1.0f, -1.0f, 0.0f, 1.0f);
+		v[2].UV = FVector2D(0.0f, 0.0f);
 		// RB
-		v[3] = FVector4(1.0f, -1.0f, 0.0f, 1.0f);
+		v[3].Position = FVector4(1.0f, -1.0f, 0.0f, 1.0f);
+		v[3].UV = FVector2D(1.0f, 0.0f);
 
-		FMemory::Memcpy(VoidPtr, &v, sizeof(FVector4) * 4);
+		FMemory::Memcpy(VoidPtr, &v, sizeof(FVertex_Pos_UV) * 4);
 		RHIUnlockVertexBuffer(MyVertexBufferRHI);
 		// Vertex Buffer Ends --------------------------
 
@@ -82,7 +117,7 @@ static void DrawToQuad_RenderThread(
 }
 
 
-void UUtilityFunctions::DrawToQuad(class UTextureRenderTarget2D* OutputRenderTarget, FLinearColor MyColor)
+void UUtilityFunctions::DrawToQuad(class UTextureRenderTarget2D* OutputRenderTarget, FLinearColor MyColor, UTexture2D* MyTexture)
 {
 	check(IsInGameThread());
 
@@ -92,11 +127,13 @@ void UUtilityFunctions::DrawToQuad(class UTextureRenderTarget2D* OutputRenderTar
 	}
 
 	FTextureRenderTargetResource* TextureRenderTargetResource = OutputRenderTarget->GameThread_GetRenderTargetResource();
+	FRHITexture2D* MyRHITexture2D = MyTexture->TextureReference.TextureReferenceRHI->GetReferencedTexture()->GetTexture2D();
+
 
 	ENQUEUE_RENDER_COMMAND(CaptureCommand)(
-		[TextureRenderTargetResource, MyColor](FRHICommandListImmediate& RHICmdList)
+		[TextureRenderTargetResource, MyColor, MyRHITexture2D](FRHICommandListImmediate& RHICmdList)
 		{
-			DrawToQuad_RenderThread(RHICmdList, TextureRenderTargetResource, MyColor);
+			DrawToQuad_RenderThread(RHICmdList, TextureRenderTargetResource, MyColor, MyRHITexture2D);
 		}
 	);
 }
