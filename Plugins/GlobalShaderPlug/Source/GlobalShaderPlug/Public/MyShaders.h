@@ -11,6 +11,7 @@ public:
 	FMyShaderBase(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
+		MainColorVal.Bind(Initializer.ParameterMap, TEXT("MainColor"));
 	}
 
 	static bool ShouldCache(EShaderPlatform Platform)
