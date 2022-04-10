@@ -3,6 +3,7 @@
 #include <Engine/TextureRenderTarget2D.h>
 
 
+
 struct FVertex_Pos_UV
 {
 	FVector4 Position;

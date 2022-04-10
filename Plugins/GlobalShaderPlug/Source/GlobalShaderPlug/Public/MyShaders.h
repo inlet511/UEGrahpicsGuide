@@ -4,6 +4,15 @@
 #include "Shader.h"
 #include <RHIResources.h>
 
+BEGIN_UNIFORM_BUFFER_STRUCT(FMyUniform, )
+SHADER_PARAMETER(FLinearColor, Color1)
+SHADER_PARAMETER(FVector4, Color2)
+SHADER_PARAMETER(float, LerpValue)
+END_UNIFORM_BUFFER_STRUCT()
+IMPLEMENT_UNIFORM_BUFFER_STRUCT(FMyUniform, "MyUniform");
+
+
+
 class FMyShaderBase : public FGlobalShader
 {
 	DECLARE_INLINE_TYPE_LAYOUT(FMyShaderBase, NonVirtual);
@@ -42,6 +51,14 @@ public:
 			MainTextureSamplerVal, 
 			TStaticSamplerState<SF_Trilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), 
 			InTexture);
+
+		FMyUniform uni;
+		uni.Color1 = FLinearColor::Blue;
+		uni.Color2 = FLinearColor::Green;
+		uni.LerpValue = 0.5f;
+
+		TUniformBufferRef<FMyUniform> Data = TUniformBufferRef<FMyUniform>::CreateUniformBufferImmediate(uni, UniformBuffer_SingleFrame);
+		SetUniformBufferParameter(RHICmdList, RHICmdList.GetBoundPixelShader(), GetUniformBufferParameter<FMyUniform>(), Data);
 	}
 
 private:
