@@ -10,4 +10,7 @@ class UUtilityFunctions : public UBlueprintFunctionLibrary
 
 	UFUNCTION(BlueprintCallable, Category = "KenUtility", meta = (WorldContext = "WorldContexObject"))
 	static void DrawToQuad(class UTextureRenderTarget2D* OutputRenderTarget,FLinearColor MyColor, UTexture2D* MyTexture);
+
+	UFUNCTION(BlueprintCallable, Category = "KenUtility")
+	static void UseComputeShader(class UTextureRenderTarget2D* OutputRenderTarget);
 };

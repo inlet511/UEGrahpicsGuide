@@ -12,7 +12,6 @@ END_UNIFORM_BUFFER_STRUCT()
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FMyUniform, "MyUniform");
 
 
-
 class FMyShaderBase : public FGlobalShader
 {
 	DECLARE_INLINE_TYPE_LAYOUT(FMyShaderBase, NonVirtual);
@@ -90,3 +89,40 @@ public:
 
 IMPLEMENT_SHADER_TYPE(, FShader_VS, TEXT("/GlobalShaderPlug/MyGlobalShader.usf"),TEXT("MainVS"),SF_Vertex)
 IMPLEMENT_SHADER_TYPE(, FShader_PS, TEXT("/GlobalShaderPlug/MyGlobalShader.usf"), TEXT("MainPS"), SF_Pixel)
+
+
+class FMyComputeShader : public FGlobalShader
+{
+	DECLARE_SHADER_TYPE(FMyComputeShader, Global)
+
+public:
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
+	{
+		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5);
+	}
+	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
+	{}
+
+	FMyComputeShader() {}
+
+	FMyComputeShader(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+		: FGlobalShader(Initializer)
+	{
+		OutputSurface.Bind(Initializer.ParameterMap, TEXT("OutputSurface"));
+	}
+
+	void SetParameters(
+		FRHICommandList& RHICmdList,
+		FTexture2DRHIRef& InOutputSurfaceValue,
+		FUnorderedAccessViewRHIRef& UAV
+	)
+	{
+		OutputSurface.SetTexture(RHICmdList, RHICmdList.GetBoundComputeShader(), InOutputSurfaceValue, UAV);
+	}
+
+private:
+
+	LAYOUT_FIELD(FRWShaderParameter, OutputSurface);
+};
+
+IMPLEMENT_SHADER_TYPE(, FMyComputeShader, TEXT("/GlobalShaderPlug/MyGlobalShader.usf"), TEXT("MainCS"), SF_Compute);

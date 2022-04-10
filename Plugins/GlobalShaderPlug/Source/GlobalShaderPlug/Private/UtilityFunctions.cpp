@@ -139,3 +139,68 @@ void UUtilityFunctions::DrawToQuad(class UTextureRenderTarget2D* OutputRenderTar
 	);
 }
 
+static void UseComputeShader_RenderThread(
+	FRHICommandListImmediate& RHICmdList,
+	FTextureRenderTargetResource* TextureRenderTargetResource
+)
+{
+	check(IsInRenderingThread());
+
+	FTexture2DRHIRef RenderTargetTexture = TextureRenderTargetResource->GetRenderTargetTexture();
+	uint32 GroupSize = 32;
+	uint32 SizeX = RenderTargetTexture->GetSizeX();
+	uint32 SizeY = RenderTargetTexture->GetSizeY();
+
+	FIntPoint FullResolution = FIntPoint(SizeX,SizeY);
+	uint32 GroupSizeX = FMath::DivideAndRoundUp((uint32)SizeX, GroupSize);
+	uint32 GroupSizeY = FMath::DivideAndRoundUp((uint32)SizeY, GroupSize);
+
+	TShaderMapRef<FMyComputeShader>ComputeShader(GetGlobalShaderMap(GMaxRHIFeatureLevel));
+	RHICmdList.SetComputeShader(ComputeShader.GetComputeShader());
+
+	//创建一个贴图资源
+	FRHIResourceCreateInfo CreateInfo;
+	FTexture2DRHIRef CreatedRHITexture = RHICreateTexture2D(SizeX, SizeY, PF_A32B32G32R32F, 1, 1, TexCreate_ShaderResource | TexCreate_UAV, CreateInfo);
+	//创建贴图资源的UAV视图
+	FUnorderedAccessViewRHIRef TextureUAV = RHICreateUnorderedAccessView(CreatedRHITexture);
+
+	// 将参数传递给ComputeShader
+	//这里我们实际上能用到的是UAV,查看SetParameters函数我们可以发现，对于ComputeShader，第二个参数实际上是没有用的
+	ComputeShader->SetParameters(RHICmdList, CreatedRHITexture, TextureUAV);
+
+	FRHITransitionInfo UAVTransitionInfo(TextureUAV, ERHIAccess::Unknown, ERHIAccess::UAVCompute);
+	const FRHITransition* GFxToAsyncTransition = RHICreateTransition(ERHIPipeline::Graphics, ERHIPipeline::AsyncCompute, ERHICreateTransitionFlags::None, MakeArrayView(&UAVTransitionInfo, 1));
+
+	RHICmdList.BeginTransition(GFxToAsyncTransition);
+	FRHIAsyncComputeCommandListImmediate& RHICmdListComputeImmediate = FRHICommandListExecutor::GetImmediateAsyncComputeCommandList();
+	DispatchComputeShader(RHICmdList, ComputeShader, GroupSizeX, GroupSizeY, 1);
+	RHICmdListComputeImmediate.EndTransition(GFxToAsyncTransition);
+
+	//把CS输出的UAV贴图拷贝到RenderTargetTexture
+	RHICmdList.CopyTexture(CreatedRHITexture, RenderTargetTexture, FRHICopyTextureInfo());
+}
+
+void UUtilityFunctions::UseComputeShader(class UTextureRenderTarget2D* OutputRenderTarget)
+{
+	check(IsInGameThread());
+
+	if (!OutputRenderTarget)
+	{
+		return;
+	}
+
+	FTextureRenderTargetResource* TextureRenderTargetResource = OutputRenderTarget->GameThread_GetRenderTargetResource();
+
+	ENQUEUE_RENDER_COMMAND(CaptureCommand)
+	(
+		[TextureRenderTargetResource](FRHICommandListImmediate& RHICmdList)
+		{
+			UseComputeShader_RenderThread
+			(
+				RHICmdList,
+				TextureRenderTargetResource
+			);
+		}
+	);
+}
+
