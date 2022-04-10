@@ -167,14 +167,9 @@ static void UseComputeShader_RenderThread(
 	// 将参数传递给ComputeShader
 	//这里我们实际上能用到的是UAV,查看SetParameters函数我们可以发现，对于ComputeShader，第二个参数实际上是没有用的
 	ComputeShader->SetParameters(RHICmdList, CreatedRHITexture, TextureUAV);
-
-	FRHITransitionInfo UAVTransitionInfo(TextureUAV, ERHIAccess::Unknown, ERHIAccess::UAVCompute);
-	const FRHITransition* GFxToAsyncTransition = RHICreateTransition(ERHIPipeline::Graphics, ERHIPipeline::AsyncCompute, ERHICreateTransitionFlags::None, MakeArrayView(&UAVTransitionInfo, 1));
-
-	RHICmdList.BeginTransition(GFxToAsyncTransition);
-	FRHIAsyncComputeCommandListImmediate& RHICmdListComputeImmediate = FRHICommandListExecutor::GetImmediateAsyncComputeCommandList();
+	
+	RHICmdList.Transition(FRHITransitionInfo(TextureUAV, ERHIAccess::Unknown, ERHIAccess::UAVMask));
 	DispatchComputeShader(RHICmdList, ComputeShader, GroupSizeX, GroupSizeY, 1);
-	RHICmdListComputeImmediate.EndTransition(GFxToAsyncTransition);
 
 	//把CS输出的UAV贴图拷贝到RenderTargetTexture
 	RHICmdList.CopyTexture(CreatedRHITexture, RenderTargetTexture, FRHICopyTextureInfo());
