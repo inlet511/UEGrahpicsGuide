@@ -26,8 +26,14 @@ void MainPS(
     OutColor = uniformColor * MainTexture.Sample(MainTextureSampler, UV.xy);
 }
 
+struct MyStruct
+{
+    float3 Position;
+    float Val;
+};
 
 RWTexture2D<float4> RWOutputSurface;
+StructuredBuffer<MyStruct> MyStructuredBuffer;
 
 [numthreads(32,32,1)]
 void MainCS(
@@ -35,5 +41,6 @@ void MainCS(
 	uint3 DispatchThreadId : SV_DispatchThreadID,
 	uint3 GroupThreadId : SV_GroupThreadID)
 {
-    RWOutputSurface[DispatchThreadId.xy] = float4(float(GroupThreadId.x) / float(32), float(GroupThreadId.y) / float(32), 0, 1);
+    //RWOutputSurface[DispatchThreadId.xy] = float4(float(GroupThreadId.x) / float(32), float(GroupThreadId.y) / float(32), 0, 1);
+    RWOutputSurface[DispatchThreadId.xy] = float4(MyStructuredBuffer[0].Position, 1);
 }

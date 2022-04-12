@@ -1,6 +1,7 @@
 #include "UtilityFunctions.h"
 #include "MyShaders.h"
 #include <Engine/TextureRenderTarget2D.h>
+#include <RHICommandList.h>
 
 
 
@@ -197,5 +198,49 @@ void UUtilityFunctions::UseComputeShader(class UTextureRenderTarget2D* OutputRen
 			);
 		}
 	);
+}
+
+
+static void UseStructuredBuffer_RenderThread(
+	FRHICommandListImmediate& RHICmdList)
+{
+
+	check(IsInRenderingThread());
+
+	//初始胡一个Resource Array，储存FVector类型数据
+	TResourceArray<FVector> MyResourcesArray;
+	// 初始化Resource Array为10个元素，并填充随机数据
+	MyResourcesArray.Init(FVector::ZeroVector, 10);
+	for (auto& v : MyResourcesArray)
+	{
+		v = FVector(
+			FMath::RandRange(.0f, 10.0f),
+			FMath::RandRange(.0f, 10.0f),
+			FMath::RandRange(.0f, 10.0f));
+	}
+
+	// 声明StructuredBuferRHI
+	FStructuredBufferRHIRef MyStructuredBuffer;
+
+	// 声明SRV
+	FShaderResourceViewRHIRef MyStructuredBufferSRV;
+
+	//创建StructuredBuffer
+	FRHIResourceCreateInfo CreateInfo;
+	CreateInfo.ResourceArray = &MyResourcesArray;
+	MyStructuredBuffer = RHICreateStructuredBuffer((uint32)sizeof(FIntPoint), (uint32)1, BUF_Static | BUF_ShaderResource, CreateInfo);
+
+	// 创建SRV
+	MyStructuredBufferSRV = RHICreateShaderResourceView(MyStructuredBuffer);
+
+	TShaderMapRef<FMyComputeShader>ComputeShader(GetGlobalShaderMap(GMaxRHIFeatureLevel));
+	RHICmdList.SetComputeShader(ComputeShader.GetComputeShader());
+
+
+}
+
+void UUtilityFunctions::UseStructuredBuffer()
+{
+	
 }
 

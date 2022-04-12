@@ -93,7 +93,7 @@ IMPLEMENT_SHADER_TYPE(, FShader_PS, TEXT("/GlobalShaderPlug/MyGlobalShader.usf")
 
 class FMyComputeShader : public FGlobalShader
 {
-	DECLARE_SHADER_TYPE(FMyComputeShader, Global)
+	DECLARE_GLOBAL_SHADER(FMyComputeShader, Global)
 
 public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
@@ -109,6 +109,7 @@ public:
 		: FGlobalShader(Initializer)
 	{
 		OutputSurface.Bind(Initializer.ParameterMap, TEXT("OutputSurface"));
+		MyStructuredBuffer.Bind(Initializer.ParameterMap, TEXT("MyStructuredBuffer"));
 	}
 
 	void SetParameters(
@@ -121,8 +122,8 @@ public:
 	}
 
 private:
-
 	LAYOUT_FIELD(FRWShaderParameter, OutputSurface);
+	LAYOUT_FIELD(FShaderResourceParameter, MyStructuredBuffer);
 };
 
-IMPLEMENT_SHADER_TYPE(, FMyComputeShader, TEXT("/GlobalShaderPlug/MyGlobalShader.usf"), TEXT("MainCS"), SF_Compute);
+IMPLEMENT_GLOBAL_SHADER(FMyComputeShader, "/GlobalShaderPlug/MyGlobalShader.usf","MainCS", SF_Compute);
