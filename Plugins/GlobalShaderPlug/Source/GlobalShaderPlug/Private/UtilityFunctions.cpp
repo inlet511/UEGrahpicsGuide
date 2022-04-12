@@ -165,9 +165,36 @@ static void UseComputeShader_RenderThread(
 	//创建贴图资源的UAV视图
 	FUnorderedAccessViewRHIRef TextureUAV = RHICreateUnorderedAccessView(CreatedRHITexture);
 
+	// StructuredBuffer新增内容**********************************************************
+
+	//初始胡一个Resource Array，储存FVector类型数据
+	TResourceArray<FVector> MyResourcesArray;
+	// 初始化Resource Array为10个元素，并填充随机数据
+	MyResourcesArray.Init(FVector::ZeroVector, 10);
+	for (auto& v : MyResourcesArray)
+	{
+		v = FVector(
+			FMath::RandRange(.0f, 1.0f),
+			FMath::RandRange(.0f, 1.0f),
+			FMath::RandRange(.0f, 1.0f));
+	}
+	// 声明StructuredBuferRHI
+	FStructuredBufferRHIRef MyStructuredBuffer;
+	// 声明SRV
+	FShaderResourceViewRHIRef MyStructuredBufferSRV;
+	//创建StructuredBuffer
+	FRHIResourceCreateInfo CreateInfo2;
+	CreateInfo2.ResourceArray = &MyResourcesArray;
+	MyStructuredBuffer = RHICreateStructuredBuffer(sizeof(FVector), sizeof(FVector) * 10 , BUF_Static | BUF_ShaderResource, CreateInfo2);
+	// 创建SRV
+	MyStructuredBufferSRV = RHICreateShaderResourceView(MyStructuredBuffer);
+
+	// *****************************************************************
+
+
 	// 将参数传递给ComputeShader
 	//这里我们实际上能用到的是UAV,查看SetParameters函数我们可以发现，对于ComputeShader，第二个参数实际上是没有用的
-	ComputeShader->SetParameters(RHICmdList, CreatedRHITexture, TextureUAV);
+	ComputeShader->SetParameters(RHICmdList, CreatedRHITexture, TextureUAV, ComputeShader.GetComputeShader(),MyStructuredBufferSRV);
 	
 	RHICmdList.Transition(FRHITransitionInfo(TextureUAV, ERHIAccess::Unknown, ERHIAccess::UAVMask));
 	DispatchComputeShader(RHICmdList, ComputeShader, GroupSizeX, GroupSizeY, 1);
@@ -199,48 +226,3 @@ void UUtilityFunctions::UseComputeShader(class UTextureRenderTarget2D* OutputRen
 		}
 	);
 }
-
-
-static void UseStructuredBuffer_RenderThread(
-	FRHICommandListImmediate& RHICmdList)
-{
-
-	check(IsInRenderingThread());
-
-	//初始胡一个Resource Array，储存FVector类型数据
-	TResourceArray<FVector> MyResourcesArray;
-	// 初始化Resource Array为10个元素，并填充随机数据
-	MyResourcesArray.Init(FVector::ZeroVector, 10);
-	for (auto& v : MyResourcesArray)
-	{
-		v = FVector(
-			FMath::RandRange(.0f, 10.0f),
-			FMath::RandRange(.0f, 10.0f),
-			FMath::RandRange(.0f, 10.0f));
-	}
-
-	// 声明StructuredBuferRHI
-	FStructuredBufferRHIRef MyStructuredBuffer;
-
-	// 声明SRV
-	FShaderResourceViewRHIRef MyStructuredBufferSRV;
-
-	//创建StructuredBuffer
-	FRHIResourceCreateInfo CreateInfo;
-	CreateInfo.ResourceArray = &MyResourcesArray;
-	MyStructuredBuffer = RHICreateStructuredBuffer((uint32)sizeof(FIntPoint), (uint32)1, BUF_Static | BUF_ShaderResource, CreateInfo);
-
-	// 创建SRV
-	MyStructuredBufferSRV = RHICreateShaderResourceView(MyStructuredBuffer);
-
-	TShaderMapRef<FMyComputeShader>ComputeShader(GetGlobalShaderMap(GMaxRHIFeatureLevel));
-	RHICmdList.SetComputeShader(ComputeShader.GetComputeShader());
-
-
-}
-
-void UUtilityFunctions::UseStructuredBuffer()
-{
-	
-}
-

@@ -93,7 +93,7 @@ IMPLEMENT_SHADER_TYPE(, FShader_PS, TEXT("/GlobalShaderPlug/MyGlobalShader.usf")
 
 class FMyComputeShader : public FGlobalShader
 {
-	DECLARE_GLOBAL_SHADER(FMyComputeShader, Global)
+	DECLARE_GLOBAL_SHADER(FMyComputeShader)
 
 public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
@@ -109,21 +109,24 @@ public:
 		: FGlobalShader(Initializer)
 	{
 		OutputSurface.Bind(Initializer.ParameterMap, TEXT("OutputSurface"));
-		MyStructuredBuffer.Bind(Initializer.ParameterMap, TEXT("MyStructuredBuffer"));
+		InData.Bind(Initializer.ParameterMap, TEXT("MyStructuredBuffer"));
 	}
 
 	void SetParameters(
 		FRHICommandList& RHICmdList,
 		FTexture2DRHIRef& InOutputSurfaceValue,
-		FUnorderedAccessViewRHIRef& UAV
+		FUnorderedAccessViewRHIRef& UAV,
+		FRHIComputeShader* Shader,
+		FShaderResourceViewRHIRef& SRV
 	)
 	{
-		OutputSurface.SetTexture(RHICmdList, RHICmdList.GetBoundComputeShader(), InOutputSurfaceValue, UAV);
+		OutputSurface.SetTexture(RHICmdList, RHICmdList.GetBoundComputeShader(), InOutputSurfaceValue, UAV);		
+		RHICmdList.SetShaderResourceViewParameter(Shader, InData.GetBaseIndex(), SRV);
 	}
 
 private:
 	LAYOUT_FIELD(FRWShaderParameter, OutputSurface);
-	LAYOUT_FIELD(FShaderResourceParameter, MyStructuredBuffer);
+	LAYOUT_FIELD(FShaderResourceParameter, InData);
 };
 
 IMPLEMENT_GLOBAL_SHADER(FMyComputeShader, "/GlobalShaderPlug/MyGlobalShader.usf","MainCS", SF_Compute);

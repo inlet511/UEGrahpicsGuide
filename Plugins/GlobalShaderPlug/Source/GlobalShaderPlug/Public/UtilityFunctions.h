@@ -14,6 +14,6 @@ class UUtilityFunctions : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintCallable, Category = "KenUtility")
 	static void UseComputeShader(class UTextureRenderTarget2D* OutputRenderTarget);
 
-	UFUNCTION(BlueprintCallable, Category = "KenUtility")
-	static void UseStructuredBuffer();
+	//UFUNCTION(BlueprintCallable, Category = "KenUtility")
+	//static void UseStructuredBuffer();
 };
